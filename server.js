@@ -412,7 +412,38 @@ function requestMixerStateFromDesk() {
 /**
  * Procura e conecta-se às portas MIDI da Yamaha 01V96
  */
-function connectMIDI() {
+function listMIDIPorts() {
+  try {
+    const inputs = easymidi.getInputs();
+    const outputs = easymidi.getOutputs();
+    return { inputs, outputs };
+  } catch (err) {
+    console.error('[MIDI] Erro ao listar portas:', err.message);
+    return { inputs: [], outputs: [] };
+  }
+}
+
+function disconnectMIDI() {
+  try {
+    if (midiInput) {
+      midiInput.close();
+      midiInput = null;
+    }
+    if (midiOutput) {
+      midiOutput.close();
+      midiOutput = null;
+    }
+  } catch (err) {
+    console.error('[MIDI] Erro ao desconectar:', err.message);
+  }
+  activeInputPort = null;
+  activeOutputPort = null;
+  midiStatus = 'Disconnected (Demo Mode)';
+  console.log('[MIDI] Desconectado manualmente.');
+  broadcast({ type: 'status', status: midiStatus });
+}
+
+function connectMIDI(inputPortName, outputPortName) {
   try {
     const inputs = easymidi.getInputs();
     const outputs = easymidi.getOutputs();
@@ -435,23 +466,42 @@ function connectMIDI() {
     );
 
     // Fechar conexões anteriores se houver
-    if (midiInput) {
-      midiInput.close();
-      midiInput = null;
-    }
-    if (midiOutput) {
-      midiOutput.close();
-      midiOutput = null;
+    disconnectMIDI();
+
+    let selectedInput = null;
+    let selectedOutput = null;
+
+    if (inputPortName && outputPortName) {
+      // Usa portas especificadas
+      if (inputs.includes(inputPortName)) selectedInput = inputPortName;
+      if (outputs.includes(outputPortName)) selectedOutput = outputPortName;
+      if (!selectedInput || !selectedOutput) {
+        console.warn(`[MIDI] Portas especificadas não encontradas: in="${inputPortName}" out="${outputPortName}". Tentando auto-detecção...`);
+      }
     }
 
-    if (yamahaInput && yamahaOutput) {
-      console.log(`Dispositivo Yamaha detectado! Conectando à Entrada: "${yamahaInput}" e Saída: "${yamahaOutput}"`);
+    if (!selectedInput || !selectedOutput) {
+      // Auto-detecção: procurar portas Yamaha
+      selectedInput = inputs.find(name => 
+        name.toLowerCase().includes('yamaha') || 
+        name.toLowerCase().includes('01v96') ||
+        name.toLowerCase().includes('usb-midi')
+      );
+      selectedOutput = outputs.find(name => 
+        name.toLowerCase().includes('yamaha') || 
+        name.toLowerCase().includes('01v96') ||
+        name.toLowerCase().includes('usb-midi')
+      );
+    }
+
+    if (selectedInput && selectedOutput) {
+      console.log(`Conectando MIDI → Entrada: "${selectedInput}" | Saída: "${selectedOutput}"`);
       
-      midiInput = new easymidi.Input(yamahaInput);
-      midiOutput = new easymidi.Output(yamahaOutput);
-      activeInputPort = yamahaInput;
-      activeOutputPort = yamahaOutput;
-      midiStatus = `Connected to ${yamahaInput}`;
+      midiInput = new easymidi.Input(selectedInput);
+      midiOutput = new easymidi.Output(selectedOutput);
+      activeInputPort = selectedInput;
+      activeOutputPort = selectedOutput;
+      midiStatus = `Connected to ${selectedInput}`;
       
       setupMIDIListeners();
 
@@ -683,6 +733,16 @@ wss.on('connection', (ws) => {
           console.log(`[FX] Processador ${processor} tipo -> ${newType}`);
           broadcast(data, true);
         }
+      } else if (data.type === 'list_midi') {
+        const ports = listMIDIPorts();
+        ws.send(JSON.stringify({ type: 'midi_ports', ports, connected: !!midiOutput, activeInputPort, activeOutputPort, midiStatus }));
+      } else if (data.type === 'connect_midi') {
+        const { inputPort, outputPort } = data;
+        console.log(`Solicitação de conexão MIDI: in="${inputPort}" out="${outputPort}"`);
+        connectMIDI(inputPort, outputPort);
+      } else if (data.type === 'disconnect_midi') {
+        console.log('Solicitação de desconexão MIDI recebida da Web.');
+        disconnectMIDI();
       } else if (data.type === 'reconnect') {
         console.log('Solicitação de reconexão MIDI recebida da Web.');
         connectMIDI();

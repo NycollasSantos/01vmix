@@ -246,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupAuxNamesEvents();
   setupChannelEditorEvents();
   setupFXEvents();
+  setupMIDISettingsEvents();
   updateAuxButtonLabels();
   updateAuxButtonColors();
 });
@@ -460,6 +461,16 @@ function updateSlotsMapping(animate = false) {
   if (scenesContainer) scenesContainer.style.display = 'none';
   if (configContainer) configContainer.style.display = 'none';
 
+  // Oculta o master section (fader stereo) nas telas de cenas e configuração
+  const masterSection = document.querySelector('.master-section');
+  if (masterSection) {
+    if (activeLayer === 'scenes' || activeLayer === 'config') {
+      masterSection.style.display = 'none';
+    } else {
+      masterSection.style.display = '';
+    }
+  }
+
   if (activeLayer === 'scenes') {
     if (scenesContainer) {
       scenesContainer.style.display = 'flex';
@@ -472,6 +483,7 @@ function updateSlotsMapping(animate = false) {
       loadNetworkInfo();
       loadLayerColors();
       loadGlobalTheme();
+      requestMIDIPorts();
     }
     return;
   } else {
@@ -2444,6 +2456,11 @@ function handleIncomingMessage(data) {
     }
   }
 
+  // 2.7. Lista de portas MIDI recebida
+  else if (data.type === 'midi_ports') {
+    updateMIDISettingsUI(data);
+  }
+
   // 3. Status MIDI física
   else if (data.type === 'status') {
     const midiDot = document.getElementById('midi-dot');
@@ -2462,6 +2479,12 @@ function handleIncomingMessage(data) {
     } else {
       midiDot.className = 'status-dot connecting';
     }
+
+    // Sincroniza o painel de configurações MIDI
+    updateMIDIStatusFromMain(data.status);
+
+    // Atualiza lista de portas MIDI após qualquer mudança de status
+    setTimeout(requestMIDIPorts, 500);
   }
 
   // 4. Pong de latência
@@ -5071,6 +5094,142 @@ function loadLayerColors() {
         document.getElementById('color-layer-aux').value = colors.aux;
       }
     } catch (e) {}
+  }
+}
+
+// -------------------------------------------------------------
+// MIDI SETTINGS
+// -------------------------------------------------------------
+
+function setupMIDISettingsEvents() {
+  const connectBtn = document.getElementById('midi-btn-connect');
+  const disconnectBtn = document.getElementById('midi-btn-disconnect');
+  const refreshBtn = document.getElementById('midi-btn-refresh');
+  const inputSelect = document.getElementById('midi-input-select');
+  const outputSelect = document.getElementById('midi-output-select');
+
+  if (connectBtn) {
+    connectBtn.addEventListener('click', () => {
+      const inputPort = inputSelect.value;
+      const outputPort = outputSelect.value;
+      if (inputPort && outputPort) {
+        connectBtn.disabled = true;
+        connectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Conectando...';
+        sendWSMessage({ type: 'connect_midi', inputPort, outputPort });
+      }
+    });
+  }
+
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener('click', () => {
+      sendWSMessage({ type: 'disconnect_midi' });
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.querySelector('i').classList.add('fa-spin');
+      requestMIDIPorts();
+      setTimeout(() => refreshBtn.querySelector('i').classList.remove('fa-spin'), 800);
+    });
+  }
+}
+
+function requestMIDIPorts() {
+  sendWSMessage({ type: 'list_midi' });
+}
+
+function updateMIDISettingsUI(data) {
+  const { ports, connected, activeInputPort, activeOutputPort, midiStatus } = data;
+  const inputSelect = document.getElementById('midi-input-select');
+  const outputSelect = document.getElementById('midi-output-select');
+  const connectBtn = document.getElementById('midi-btn-connect');
+  const disconnectBtn = document.getElementById('midi-btn-disconnect');
+  const statusDot = document.getElementById('midi-settings-dot');
+  const statusText = document.getElementById('midi-settings-status');
+  const infoIn = document.getElementById('midi-info-in');
+  const infoOut = document.getElementById('midi-info-out');
+
+  if (!inputSelect || !outputSelect) return;
+
+  // Salva seleção atual
+  const prevInputVal = inputSelect.value;
+  const prevOutputVal = outputSelect.value;
+
+  // Atualiza dropdown de entrada
+  inputSelect.innerHTML = '<option value="">— Selecione uma porta —</option>';
+  if (ports && ports.inputs && ports.inputs.length > 0) {
+    ports.inputs.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (name === activeInputPort) opt.selected = true;
+      inputSelect.appendChild(opt);
+    });
+    inputSelect.disabled = connected ? true : false;
+  } else {
+    inputSelect.innerHTML = '<option value="">— Nenhuma porta encontrada —</option>';
+    inputSelect.disabled = true;
+  }
+
+  // Atualiza dropdown de saída
+  outputSelect.innerHTML = '<option value="">— Selecione uma porta —</option>';
+  if (ports && ports.outputs && ports.outputs.length > 0) {
+    ports.outputs.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (name === activeOutputPort) opt.selected = true;
+      outputSelect.appendChild(opt);
+    });
+    outputSelect.disabled = connected ? true : false;
+  } else {
+    outputSelect.innerHTML = '<option value="">— Nenhuma porta encontrada —</option>';
+    outputSelect.disabled = true;
+  }
+
+  // Status
+  if (connected) {
+    statusDot.className = 'midi-status-dot connected';
+    statusText.textContent = 'Conectado';
+    statusText.style.color = 'var(--led-green)';
+    connectBtn.disabled = true;
+    disconnectBtn.disabled = false;
+    if (infoIn) infoIn.textContent = activeInputPort || '—';
+    if (infoOut) infoOut.textContent = activeOutputPort || '—';
+  } else {
+    statusDot.className = 'midi-status-dot disconnected';
+    statusText.textContent = midiStatus && midiStatus.toLowerCase().includes('demo') ? 'Modo Demonstração' : 'Desconectado';
+    statusText.style.color = 'var(--text-muted)';
+    connectBtn.disabled = !(inputSelect.value && outputSelect.value);
+    disconnectBtn.disabled = true;
+    if (infoIn) infoIn.textContent = '—';
+    if (infoOut) infoOut.textContent = '—';
+  }
+
+  // Habilita connect se ambas as portas estiverem selecionadas
+  if (!connected) {
+    connectBtn.disabled = !(inputSelect.value && outputSelect.value);
+  }
+}
+
+function updateMIDIStatusFromMain(status) {
+  const statusDot = document.getElementById('midi-settings-dot');
+  const statusText = document.getElementById('midi-settings-status');
+  if (!statusDot || !statusText) return;
+
+  if (status.toLowerCase().includes('connected to')) {
+    statusDot.className = 'midi-status-dot connected';
+    statusText.textContent = 'Conectado';
+    statusText.style.color = 'var(--led-green)';
+  } else if (status.toLowerCase().includes('disconnected') || status.toLowerCase().includes('demo')) {
+    statusDot.className = 'midi-status-dot disconnected';
+    statusText.textContent = status.toLowerCase().includes('demo') ? 'Modo Demonstração' : 'Desconectado';
+    statusText.style.color = 'var(--text-muted)';
+  } else {
+    statusDot.className = 'midi-status-dot connecting';
+    statusText.textContent = 'Conectando...';
+    statusText.style.color = 'var(--led-yellow)';
   }
 }
 

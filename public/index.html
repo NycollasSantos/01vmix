@@ -614,17 +614,51 @@
             </div>
           </div>
           
-          <div class="config-card">
-            <h3><i class="fa-solid fa-plug"></i> Protocolo MIDI e Mesa Física</h3>
-            <p>Status atual da interface física de controle:</p>
-            <div class="midi-details-box">
-              <p>Mesa Selecionada: <strong>Yamaha 01V96 (USB-MIDI)</strong></p>
-              <p>Estado do Buffer: <strong class="text-success">Ativo (Sincronizado)</strong></p>
-              <p>Resolução de Faders: <strong>10-bits (Alta Resolução: 0 a 1023)</strong></p>
+          <div class="config-card midi-settings-card">
+            <h3><i class="fa-solid fa-plug"></i> Configurações MIDI</h3>
+            <p>Gerencie a conexão com a mesa Yamaha 01V96 via MIDI:</p>
+
+            <div class="midi-status-bar">
+              <span class="midi-status-dot" id="midi-settings-dot"></span>
+              <span class="midi-status-text" id="midi-settings-status">Verificando...</span>
+            </div>
+
+            <div class="midi-port-selectors">
+              <div class="midi-port-group">
+                <label for="midi-input-select">Porta de Entrada (MIDI IN)</label>
+                <select id="midi-input-select" disabled>
+                  <option value="">— Nenhuma porta disponível —</option>
+                </select>
+              </div>
+              <div class="midi-port-group">
+                <label for="midi-output-select">Porta de Saída (MIDI OUT)</label>
+                <select id="midi-output-select" disabled>
+                  <option value="">— Nenhuma porta disponível —</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="midi-actions-row">
+              <button class="midi-btn midi-btn-connect" id="midi-btn-connect" disabled>
+                <i class="fa-solid fa-link"></i> Conectar
+              </button>
+              <button class="midi-btn midi-btn-disconnect" id="midi-btn-disconnect" disabled>
+                <i class="fa-solid fa-unlink"></i> Desconectar
+              </button>
+              <button class="midi-btn midi-btn-refresh" id="midi-btn-refresh" title="Atualizar lista de portas MIDI">
+                <i class="fa-solid fa-rotate"></i>
+              </button>
+            </div>
+
+            <div class="midi-info-box" id="midi-info-box">
+              <p><span class="midi-info-label">Porta Ativa (IN):</span> <span id="midi-info-in">—</span></p>
+              <p><span class="midi-info-label">Porta Ativa (OUT):</span> <span id="midi-info-out">—</span></p>
+              <p><span class="midi-info-label">Resolução:</span> 10-bits (0 a 1023)</p>
+              <p><span class="midi-info-label">Protocolo:</span> Yamaha 01V96 SysEx + CC</p>
             </div>
           </div>
 
-          <div class="config-card">
+          <div class="config-card" style="order: 5;">
             <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tema Neon do Sistema (Geral)</h3>
             <p>Altere a cor de destaque neon principal de botões, displays LCD e detalhes iluminados:</p>
             <div class="theme-picker-row">
@@ -640,7 +674,7 @@
             </div>
           </div>
 
-          <div class="config-card">
+          <div class="config-card" style="order: 4;">
             <h3><i class="fa-solid fa-layer-group"></i> Cores Padrão de Camadas (Faders)</h3>
             <p>Defina as cores das bordas das tiras físicas do console por tipo de sinal:</p>
             <div class="layers-color-picker-grid">
@@ -665,7 +699,7 @@
             </div>
           </div>
           
-          <div class="customize-actions-row" style="grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: 10px;">
+          <div class="customize-actions-row" style="order: 6; grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: 10px;">
             <button class="action-btn-reset-theme" id="btn-reset-theme">
               <i class="fa-solid fa-arrow-rotate-left"></i> Restaurar Padrões de Fábrica
             </button>
