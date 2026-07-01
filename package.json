@@ -1,0 +1,24 @@
+{
+  "name": "01vmix",
+  "version": "1.0.0",
+  "description": "Interface de controle web 01vMix para mesa digital Yamaha 01V96",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "yamaha",
+    "01v96",
+    "midi",
+    "sysex",
+    "websocket",
+    "web-control"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "easymidi": "^3.1.2",
+    "express": "^4.19.2",
+    "ws": "^8.17.0"
+  }
+}

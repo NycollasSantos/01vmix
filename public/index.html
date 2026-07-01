@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01VMIX</title>
+  
+  <!-- Google Fonts para visual moderno e profissional -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome para ícones premium -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+  
+  <!-- Fundo com efeito gradiente animado -->
+  <div class="bg-glow"></div>
+  
+  <div class="app-container">
+    <!-- Cabeçalho Principal (Header) -->
+    <header class="main-header">
+      <div class="brand">
+        <div class="brand-text">
+          <h1>01V<span class="brand-highlight" id="brand-title-mix">MIX</span></h1>
+        </div>
+      </div>
+      
+      <!-- Seletor de Camadas (Layers) -->
+      <div class="layer-selector">
+        <button class="layer-tab active" data-layer="input1" id="tab-input1">
+          <i class="fa-solid fa-layer-group"></i> CH 1-16
+        </button>
+        <button class="layer-tab" data-layer="input2" id="tab-input2">
+          <i class="fa-solid fa-layer-group"></i> CH 17-32
+        </button>
+        <button class="layer-tab" data-layer="auxbus" id="tab-auxbus">
+          <i class="fa-solid fa-layer-group"></i> AUX / BUS
+        </button>
+        <button class="layer-tab" data-layer="scenes" id="tab-scenes">
+          <i class="fa-solid fa-folder-open"></i> CENAS
+        </button>
+        <button class="layer-tab" data-layer="config" id="tab-config">
+          <i class="fa-solid fa-gear"></i> CONFIGURAÇÃO
+        </button>
+      </div>
+      
+      <!-- Status de Conexão -->
+      <div class="status-panel">
+        <div class="status-item" id="ws-status-container">
+          <span class="status-dot disconnected" id="ws-dot"></span>
+          <span class="status-text">Server: <strong id="ws-text">Connecting...</strong></span>
+        </div>
+        <div class="status-item" id="midi-status-container">
+          <span class="status-dot disconnected" id="midi-dot"></span>
+          <span class="status-text">Mixer: <strong id="midi-text">Checking...</strong></span>
+        </div>
+        <button id="btn-reconnect" class="action-btn" title="Forçar reconexão MIDI no servidor">
+          <i class="fa-solid fa-rotate"></i> Reconectar
+        </button>
+      </div>
+    </header>
+
+    <!-- Painel de Tela LCD da Yamaha 01V96 -->
+    <section class="lcd-screen-panel">
+      <div class="lcd-screen">
+        <div class="lcd-left">
+          <div class="lcd-row">SELECTED CH: <span id="lcd-sel-ch">CH 01</span></div>
+          <div class="lcd-row font-large" id="lcd-ch-name">INPUT 1</div>
+          <div class="lcd-row">FADER MODE: <span id="lcd-mode-status" class="lcd-highlight">HOME (STEREO OUT)</span></div>
+        </div>
+        <div class="lcd-center">
+          <div class="lcd-mixer-model">YAMAHA 01V96VCM</div>
+          <div class="lcd-midi-port" id="lcd-midi-port-name">MIDI: PORT NOT CONNECTED</div>
+        </div>
+        <div class="lcd-right">
+          <div class="lcd-meter-group">
+            <span class="lcd-meter-label">ST L</span>
+            <div class="lcd-horizontal-vu"><div class="lcd-vu-fill" id="lcd-vu-l"></div></div>
+          </div>
+          <div class="lcd-meter-group">
+            <span class="lcd-meter-label">ST R</span>
+            <div class="lcd-horizontal-vu"><div class="lcd-vu-fill" id="lcd-vu-r"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gaveta de Controle do Canal Selecionado (EQ, Gate e Compressor) -->
+    <section class="channel-control-drawer" id="channel-control-drawer" style="display: none;">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <i class="fa-solid fa-sliders"></i>
+          <span>CANAL <strong id="drawer-channel-num">01</strong> (<span id="drawer-channel-name">INPUT 1</span>)</span>
+        </div>
+        
+        <!-- Abas Principais de Navegação -->
+        <div class="drawer-tabs">
+          <button class="drawer-tab active" data-tab="eq" id="tab-drawer-eq">EQUALIZADOR</button>
+          <button class="drawer-tab" data-tab="gate" id="tab-drawer-gate">GATE</button>
+          <button class="drawer-tab" data-tab="comp" id="tab-drawer-comp">COMPRESSOR</button>
+          <button class="drawer-tab" data-tab="fx" id="tab-drawer-fx">FX</button>
+          <button class="drawer-tab rta-tab" data-tab="rta" id="tab-drawer-rta" style="display:none;">RTA</button>
+        </div>
+        
+        <div class="drawer-actions">
+          <button class="drawer-close-btn" id="drawer-close-btn" title="Fechar Painel">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div class="drawer-content">
+        <!-- PAINEL DO EQUALIZADOR -->
+        <div class="drawer-pane" id="pane-eq" style="display: grid;">
+          <div class="eq-graph-container">
+            <canvas id="eq-canvas"></canvas>
+            <div class="eq-graph-tooltip" id="eq-tooltip" style="display: none;"></div>
+          </div>
+          
+          <div class="eq-controls-panel">
+            <div class="eq-drawer-actions-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <button class="eq-bypass-btn" id="eq-bypass-btn" style="flex: 1;">
+                <span class="btn-led green-led" id="eq-bypass-led"></span>
+                EQ ON
+              </button>
+              <button class="eq-reset-btn" id="eq-reset-btn" title="Resetar Equalizador para o Padrão">
+                <i class="fa-solid fa-arrow-rotate-left"></i> RESET
+              </button>
+            </div>
+            
+            <div class="eq-band-tabs">
+              <button class="eq-band-tab active" data-band="1" id="tab-band-1">LOW</button>
+              <button class="eq-band-tab" data-band="2" id="tab-band-2">L-MID</button>
+              <button class="eq-band-tab" data-band="3" id="tab-band-3">H-MID</button>
+              <button class="eq-band-tab" data-band="4" id="tab-band-4">HIGH</button>
+            </div>
+
+            <div class="eq-filter-type-row" id="eq-filter-type-row" style="display: flex; gap: 6px; margin: 6px 0; align-items: center;">
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: bold; letter-spacing: 0.5px;">FILTRO:</span>
+              <div class="filter-type-btns" id="filter-type-btns">
+                <button class="filter-type-btn active" data-type="peaking" id="btn-filter-peaking">
+                  <i class="fa-solid fa-bell"></i> Peak
+                </button>
+                <button class="filter-type-btn" data-type="shelving" id="btn-filter-shelving">
+                  <i class="fa-solid fa-square-envelope"></i> Shelf
+                </button>
+                <button class="filter-type-btn" data-type="hpf" id="btn-filter-hpf">
+                  <i class="fa-solid fa-wave-square"></i> HPF
+                </button>
+                <button class="filter-type-btn" data-type="lpf" id="btn-filter-lpf" style="display: none;">
+                  <i class="fa-solid fa-wave-square"></i> LPF
+                </button>
+              </div>
+            </div>
+            
+            <div class="eq-parameters">
+              <div class="eq-param-group">
+                <label for="eq-slider-gain">GANHO (dB)</label>
+                <div class="eq-slider-wrapper">
+                  <input type="range" id="eq-slider-gain" min="0" max="127" value="64">
+                  <span class="eq-param-val" id="eq-val-gain">0.0 dB</span>
+                </div>
+              </div>
+              
+              <div class="eq-param-group">
+                <label for="eq-slider-freq">FREQUÊNCIA (Hz)</label>
+                <div class="eq-slider-wrapper">
+                  <input type="range" id="eq-slider-freq" min="0" max="127" value="64">
+                  <span class="eq-param-val" id="eq-val-freq">1.00 kHz</span>
+                </div>
+              </div>
+              
+              <div class="eq-param-group">
+                <label for="eq-slider-q">FATOR Q</label>
+                <div class="eq-slider-wrapper">
+                  <input type="range" id="eq-slider-q" min="0" max="127" value="64">
+                  <span class="eq-param-val" id="eq-val-q">0.70</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAINEL DO GATE -->
+        <div class="drawer-pane" id="pane-gate" style="display: none;">
+          <div class="gate-graph-container">
+            <canvas id="gate-canvas"></canvas>
+            <div class="gate-graph-tooltip" id="gate-tooltip" style="display: none;"></div>
+          </div>
+          
+          <div class="dyn-controls-panel">
+            <div class="dyn-header-row">
+              <button class="dyn-bypass-btn" id="gate-bypass-btn">
+                <span class="btn-led orange-led" id="gate-bypass-led"></span>
+                GATE ON
+              </button>
+            </div>
+            
+            <div class="dyn-parameters-grid">
+              <div class="dyn-column">
+                <div class="dyn-param-group">
+                  <label for="gate-slider-threshold">THRESHOLD (dB)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="gate-slider-threshold" min="0" max="127" value="32">
+                    <span class="dyn-param-val" id="gate-val-threshold">-54 dB</span>
+                  </div>
+                </div>
+                
+                <div class="dyn-param-group">
+                  <label for="gate-slider-range">RANGE (dB)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="gate-slider-range" min="0" max="127" value="64">
+                    <span class="dyn-param-val" id="gate-val-range">-40 dB</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="dyn-column">
+                <div class="dyn-param-group">
+                  <label for="gate-slider-attack">ATTACK (ms)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="gate-slider-attack" min="0" max="127" value="16">
+                    <span class="dyn-param-val" id="gate-val-attack">16 ms</span>
+                  </div>
+                </div>
+                
+                <div class="dyn-param-group">
+                  <label for="gate-slider-hold">HOLD (ms)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="gate-slider-hold" min="0" max="127" value="0">
+                    <span class="dyn-param-val" id="gate-val-hold">0.0 ms</span>
+                  </div>
+                </div>
+                
+                <div class="dyn-param-group">
+                  <label for="gate-slider-decay">DECAY (ms)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="gate-slider-decay" min="0" max="127" value="64">
+                    <span class="dyn-param-val" id="gate-val-decay">120 ms</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAINEL DO COMPRESSOR -->
+        <div class="drawer-pane" id="pane-comp" style="display: none;">
+          <div class="comp-graph-wrapper">
+            <div class="comp-graph-container">
+              <canvas id="comp-canvas"></canvas>
+              <div class="comp-graph-tooltip" id="comp-tooltip" style="display: none;"></div>
+            </div>
+            
+            <!-- Medidor vertical de Gain Reduction (GR) -->
+            <div class="gr-vu-container">
+              <div class="gr-vu-header">GR</div>
+              <div class="gr-vu-bar-wrapper">
+                <div class="gr-vu-bar-fill" id="comp-gr-fill"></div>
+              </div>
+              <div class="gr-vu-scale">
+                <span>0</span>
+                <span>6</span>
+                <span>12</span>
+                <span>18</span>
+                <span>24</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="dyn-controls-panel">
+            <div class="dyn-header-row">
+              <button class="dyn-bypass-btn" id="comp-bypass-btn">
+                <span class="btn-led red-led" id="comp-bypass-led"></span>
+                COMP ON
+              </button>
+            </div>
+            
+            <div class="dyn-parameters-grid">
+              <div class="dyn-column">
+                <div class="dyn-param-group">
+                  <label for="comp-slider-threshold">THRESHOLD (dB)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="comp-slider-threshold" min="0" max="127" value="64">
+                    <span class="dyn-param-val" id="comp-val-threshold">-20 dB</span>
+                  </div>
+                </div>
+                
+                <div class="dyn-param-group">
+                  <label for="comp-slider-ratio">RATIO</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="comp-slider-ratio" min="0" max="127" value="48">
+                    <span class="dyn-param-val" id="comp-val-ratio">4:1</span>
+                  </div>
+                </div>
+                
+                <div class="dyn-param-group">
+                  <label for="comp-slider-knee">KNEE</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="comp-slider-knee" min="0" max="127" value="1">
+                    <span class="dyn-param-val" id="comp-val-knee">SOFT</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="dyn-column">
+                <div class="dyn-param-group">
+                  <label for="comp-slider-attack">ATTACK (ms)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="comp-slider-attack" min="0" max="127" value="16">
+                    <span class="dyn-param-val" id="comp-val-attack">16 ms</span>
+                  </div>
+                </div>
+                
+                <div class="dyn-param-group">
+                  <label for="comp-slider-release">RELEASE (ms)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="comp-slider-release" min="0" max="127" value="64">
+                    <span class="dyn-param-val" id="comp-val-release">250 ms</span>
+                  </div>
+                </div>
+                
+                <div class="dyn-param-group">
+                  <label for="comp-slider-outgain">OUT GAIN (dB)</label>
+                  <div class="dyn-slider-wrapper">
+                    <input type="range" id="comp-slider-outgain" min="0" max="127" value="64">
+                    <span class="dyn-param-val" id="comp-val-outgain">0.0 dB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAINEL DE EFEITOS (FX1, FX2) -->
+        <div class="drawer-pane fx-pane" id="pane-fx" style="display: none;">
+          <div class="fx-selector-row">
+            <div class="fx-selector-group">
+              <label>PROCESSADOR</label>
+              <div class="fx-selector-btns">
+                <button class="fx-sel-btn active" data-fx="1" id="fx-sel-1">FX1</button>
+                <button class="fx-sel-btn" data-fx="2" id="fx-sel-2">FX2</button>
+              </div>
+            </div>
+            <button class="fx-bypass-btn" id="fx-bypass-btn">
+              <span class="btn-led green-led" id="fx-bypass-led"></span>
+              BYPASS
+            </button>
+          </div>
+
+          <div class="fx-type-row">
+            <label>TIPO DE EFEITO</label>
+            <select class="fx-type-select" id="fx-type-select">
+              <option value="reverb">Reverb</option>
+              <option value="delay">Delay</option>
+              <option value="chorus">Chorus</option>
+              <option value="flanger">Flanger</option>
+              <option value="phaser">Phaser</option>
+              <option value="tremolo">Tremolo</option>
+              <option value="rotary">Rotary Speaker</option>
+              <option value="distortion">Distortion</option>
+            </select>
+          </div>
+
+          <div class="fx-params-grid" id="fx-params-grid">
+            <!-- Parâmetros preenchidos dinamicamente via JS -->
+          </div>
+
+          <div class="fx-mix-row">
+            <label for="fx-slider-mix">WET / DRY</label>
+            <div class="fx-slider-wrapper">
+              <input type="range" class="fx-slider" id="fx-slider-mix" min="0" max="127" value="64">
+              <span class="fx-param-val" id="fx-val-mix">50%</span>
+            </div>
+          </div>
+
+          <div class="fx-return-levels">
+            <div class="fx-return-item">
+              <label>RETORNO FX1</label>
+              <div class="fx-slider-wrapper">
+                <input type="range" class="fx-slider fxreturn-slider" id="fxreturn-fader-1" min="0" max="1023" value="0">
+                <span class="fx-param-val fxreturn-val" id="fxreturn-val-1">-oo dB</span>
+              </div>
+            </div>
+            <div class="fx-return-item">
+              <label>RETORNO FX2</label>
+              <div class="fx-slider-wrapper">
+                <input type="range" class="fx-slider fxreturn-slider" id="fxreturn-fader-2" min="0" max="1023" value="0">
+                <span class="fx-param-val fxreturn-val" id="fxreturn-val-2">-oo dB</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="fx-routing-section" id="fx-routing-section">
+            <div class="fx-routing-header">
+              <label>ROTEAMENTO DOS RETORNOS</label>
+              <p class="editor-hint">Selecione para onde cada retorno FX enviará o sinal:</p>
+            </div>
+            <div class="fx-routing-tabs">
+              <button class="fx-rtn-tab active" data-rtn="1" id="fx-rtn-tab-1">FX RTN 1</button>
+              <button class="fx-rtn-tab" data-rtn="2" id="fx-rtn-tab-2">FX RTN 2</button>
+            </div>
+            <div class="fx-rtn-bus-grid" id="fx-rtn-bus-grid">
+              <label class="bus-toggle" data-bus="lr">
+                <input type="checkbox" id="fx-rtn-bus-lr">
+                <span class="bus-toggle-label">LR</span>
+              </label>
+              <label class="bus-toggle" data-bus="1">
+                <input type="checkbox" id="fx-rtn-bus-1">
+                <span class="bus-toggle-label">BUS 1</span>
+              </label>
+              <label class="bus-toggle" data-bus="2">
+                <input type="checkbox" id="fx-rtn-bus-2">
+                <span class="bus-toggle-label">BUS 2</span>
+              </label>
+              <label class="bus-toggle" data-bus="3">
+                <input type="checkbox" id="fx-rtn-bus-3">
+                <span class="bus-toggle-label">BUS 3</span>
+              </label>
+              <label class="bus-toggle" data-bus="4">
+                <input type="checkbox" id="fx-rtn-bus-4">
+                <span class="bus-toggle-label">BUS 4</span>
+              </label>
+              <label class="bus-toggle" data-bus="5">
+                <input type="checkbox" id="fx-rtn-bus-5">
+                <span class="bus-toggle-label">BUS 5</span>
+              </label>
+              <label class="bus-toggle" data-bus="6">
+                <input type="checkbox" id="fx-rtn-bus-6">
+                <span class="bus-toggle-label">BUS 6</span>
+              </label>
+              <label class="bus-toggle" data-bus="7">
+                <input type="checkbox" id="fx-rtn-bus-7">
+                <span class="bus-toggle-label">BUS 7</span>
+              </label>
+              <label class="bus-toggle" data-bus="8">
+                <input type="checkbox" id="fx-rtn-bus-8">
+                <span class="bus-toggle-label">BUS 8</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAINEL RTA (Master Stereo / Aux Masters) -->
+        <div class="drawer-pane rta-pane" id="pane-rta" style="display: none;">
+          <div class="rta-header">
+            <div class="rta-status-bar">
+              <span class="rta-led" id="rta-led"></span>
+              <span id="rta-status-text">PARADO</span>
+            </div>
+            <div class="rta-critical-badges" id="rta-critical-badges"></div>
+            <button class="rta-toggle-btn" id="rta-toggle-btn">
+              <i class="fa-solid fa-play" id="rta-btn-icon"></i>
+              <span id="rta-btn-text">INICIAR</span>
+            </button>
+          </div>
+          <div class="rta-canvas-wrap">
+            <canvas id="rta-canvas"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- EQ GRÁFICO (separado do RTA) -->
+      <div class="drawer-eq-section" id="drawer-eq-section" style="display: none;">
+        <div class="rta-graphic-eq">
+          <div class="rta-eq-bands" id="rta-eq-bands"></div>
+        </div>
+      </div>
+
+      <!-- Navegação rápida entre canais -->
+      <div class="drawer-channel-nav" id="drawer-channel-nav">
+        <div class="drawer-nav-list" id="drawer-nav-list"></div>
+      </div>
+    </section>
+
+    <!-- Console de Controle Central -->
+    <main class="mixer-surface">
+      <!-- Painel de Botões Físicos Laterais (Fader Modes) -->
+      <aside class="fader-mode-panel">
+        <div class="panel-section-title">FADER MODE</div>
+        
+        <div class="physical-button-wrapper">
+          <button class="physical-btn btn-home active" id="btn-mode-home" title="Controlar Faders de Volume Estéreo Principal">
+            <span class="btn-led green-led active" id="led-home"></span>
+            HOME
+          </button>
+        </div>
+        
+        <div class="panel-divider"></div>
+        
+        <div class="panel-section-title">AUX SENDS</div>
+        
+        <div class="aux-buttons-grid">
+          <button class="physical-btn btn-aux" id="btn-mode-aux-1" data-aux="1" title="Duplo clique para renomear">
+            <span class="btn-led orange-led" id="led-aux-1"></span>
+            <span class="aux-btn-label" id="aux-label-1">AUX 1</span>
+          </button>
+          <button class="physical-btn btn-aux" id="btn-mode-aux-2" data-aux="2" title="Duplo clique para renomear">
+            <span class="btn-led orange-led" id="led-aux-2"></span>
+            <span class="aux-btn-label" id="aux-label-2">AUX 2</span>
+          </button>
+          <button class="physical-btn btn-aux" id="btn-mode-aux-3" data-aux="3" title="Duplo clique para renomear">
+            <span class="btn-led orange-led" id="led-aux-3"></span>
+            <span class="aux-btn-label" id="aux-label-3">AUX 3</span>
+          </button>
+          <button class="physical-btn btn-aux" id="btn-mode-aux-4" data-aux="4" title="Duplo clique para renomear">
+            <span class="btn-led orange-led" id="led-aux-4"></span>
+            <span class="aux-btn-label" id="aux-label-4">AUX 4</span>
+          </button>
+          <button class="physical-btn btn-aux" id="btn-mode-aux-5" data-aux="5" title="Duplo clique para renomear">
+            <span class="btn-led orange-led" id="led-aux-5"></span>
+            <span class="aux-btn-label" id="aux-label-5">AUX 5</span>
+          </button>
+          <button class="physical-btn btn-aux" id="btn-mode-aux-6" data-aux="6" title="Duplo clique para renomear">
+            <span class="btn-led orange-led" id="led-aux-6"></span>
+            <span class="aux-btn-label" id="aux-label-6">AUX 6</span>
+          </button>
+          <button class="physical-btn btn-aux" id="btn-mode-aux-7" data-aux="7" title="Duplo clique para renomear">
+            <span class="btn-led orange-led" id="led-aux-7"></span>
+            <span class="aux-btn-label" id="aux-label-7">AUX 7</span>
+          </button>
+          <button class="physical-btn btn-aux" id="btn-mode-aux-8" data-aux="8" title="Duplo clique para renomear">
+            <span class="btn-led orange-led" id="led-aux-8"></span>
+            <span class="aux-btn-label" id="aux-label-8">AUX 8</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Painel Esquerdo: Canais 1 a 16 (injetados via JS) -->
+      <div class="channels-viewport">
+        <div class="channels-grid" id="channels-container">
+          <!-- Os canais 1 a 16 serão renderizados aqui dinamicamente pelo app.js -->
+          <div class="loading-channels">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>Carregando Canais...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Painel de Gerenciamento de Cenas (oculto por padrão) -->
+      <div class="scenes-viewport" id="scenes-container" style="display: none;">
+        <div class="scenes-header">
+          <h2><i class="fa-solid fa-folder-open text-primary"></i> Biblioteca de Cenas (01V96)</h2>
+          <p class="scenes-desc">
+            Selecione um slot para carregar ou salvar o estado completo do mixer. 
+            <em>Para salvar permanentemente na mesa, use o botão [STORE] no painel físico do mixer.</em>
+          </p>
+        </div>
+        <div class="scenes-grid-wrapper">
+          <div class="scenes-grid" id="scenes-grid-list">
+            <!-- Slots de Cenas 1 a 99 injetados via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Painel de Configurações do Sistema (oculto por padrão) -->
+      <div class="config-viewport" id="config-container" style="display: none;">
+        <div class="config-header">
+          <h2><i class="fa-solid fa-gear text-primary"></i> Configurações do Sistema</h2>
+          <p class="config-desc">Informações técnicas de rede, portas de barramento MIDI e personalização de cores e temas da 01V Station.</p>
+        </div>
+        <div class="config-content">
+          <div class="config-card">
+            <h3><i class="fa-solid fa-network-wired"></i> Acesso na Rede Local</h3>
+            <p>Utilize os endereços abaixo para controlar a mesa de som a partir de smartphones, tablets ou outros computadores conectados na mesma rede Wi-Fi:</p>
+            <ul class="network-ips-list" id="network-ips-list">
+              <li><i class="fa-solid fa-desktop"></i> http://localhost:3000 (Local)</li>
+              <!-- IPs adicionais injetados via JS -->
+            </ul>
+          </div>
+          
+          <div class="config-card">
+            <h3><i class="fa-solid fa-tags"></i> Nomes dos Auxiliares (AUX 1-8)</h3>
+            <p>Edite os nomes de exibição dos barramentos auxiliares de saída:</p>
+            <div class="aux-names-grid">
+              <div class="aux-name-item">
+                <label>AUX 1</label>
+                <input type="text" class="aux-name-input" data-aux="1" maxlength="8" placeholder="AUX 1" id="aux-name-1">
+              </div>
+              <div class="aux-name-item">
+                <label>AUX 2</label>
+                <input type="text" class="aux-name-input" data-aux="2" maxlength="8" placeholder="AUX 2" id="aux-name-2">
+              </div>
+              <div class="aux-name-item">
+                <label>AUX 3</label>
+                <input type="text" class="aux-name-input" data-aux="3" maxlength="8" placeholder="AUX 3" id="aux-name-3">
+              </div>
+              <div class="aux-name-item">
+                <label>AUX 4</label>
+                <input type="text" class="aux-name-input" data-aux="4" maxlength="8" placeholder="AUX 4" id="aux-name-4">
+              </div>
+              <div class="aux-name-item">
+                <label>AUX 5</label>
+                <input type="text" class="aux-name-input" data-aux="5" maxlength="8" placeholder="AUX 5" id="aux-name-5">
+              </div>
+              <div class="aux-name-item">
+                <label>AUX 6</label>
+                <input type="text" class="aux-name-input" data-aux="6" maxlength="8" placeholder="AUX 6" id="aux-name-6">
+              </div>
+              <div class="aux-name-item">
+                <label>AUX 7</label>
+                <input type="text" class="aux-name-input" data-aux="7" maxlength="8" placeholder="AUX 7" id="aux-name-7">
+              </div>
+              <div class="aux-name-item">
+                <label>AUX 8</label>
+                <input type="text" class="aux-name-input" data-aux="8" maxlength="8" placeholder="AUX 8" id="aux-name-8">
+              </div>
+            </div>
+          </div>
+          
+          <div class="config-card">
+            <h3><i class="fa-solid fa-plug"></i> Protocolo MIDI e Mesa Física</h3>
+            <p>Status atual da interface física de controle:</p>
+            <div class="midi-details-box">
+              <p>Mesa Selecionada: <strong>Yamaha 01V96 (USB-MIDI)</strong></p>
+              <p>Estado do Buffer: <strong class="text-success">Ativo (Sincronizado)</strong></p>
+              <p>Resolução de Faders: <strong>10-bits (Alta Resolução: 0 a 1023)</strong></p>
+            </div>
+          </div>
+
+          <div class="config-card">
+            <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tema Neon do Sistema (Geral)</h3>
+            <p>Altere a cor de destaque neon principal de botões, displays LCD e detalhes iluminados:</p>
+            <div class="theme-picker-row">
+              <input type="color" id="global-theme-color" value="#3b82f6" title="Escolha uma cor de destaque personalizada">
+              <span class="theme-color-hex" id="global-theme-color-hex">#3b82f6</span>
+            </div>
+            <div class="preset-themes-grid">
+              <button class="preset-theme-btn" data-color="#3b82f6" style="background-color: #3b82f6;">Classic Blue</button>
+              <button class="preset-theme-btn" data-color="#06b6d4" style="background-color: #06b6d4;">Cyan Glow</button>
+              <button class="preset-theme-btn" data-color="#10b981" style="background-color: #10b981;">Emerald Green</button>
+              <button class="preset-theme-btn" data-color="#f59e0b" style="background-color: #f59e0b;">Amber Gold</button>
+              <button class="preset-theme-btn" data-color="#ec4899" style="background-color: #ec4899;">Hot Pink</button>
+            </div>
+          </div>
+
+          <div class="config-card">
+            <h3><i class="fa-solid fa-layer-group"></i> Cores Padrão de Camadas (Faders)</h3>
+            <p>Defina as cores das bordas das tiras físicas do console por tipo de sinal:</p>
+            <div class="layers-color-picker-grid">
+              <div class="layer-color-item">
+                <label for="color-layer-input">Canais de Entrada (Inputs):</label>
+                <div class="picker-wrapper">
+                  <input type="color" id="color-layer-input" value="#3b82f6">
+                </div>
+              </div>
+              <div class="layer-color-item">
+                <label for="color-layer-bus">Canais de Grupo (Buses):</label>
+                <div class="picker-wrapper">
+                  <input type="color" id="color-layer-bus" value="#a855f7">
+                </div>
+              </div>
+              <div class="layer-color-item">
+                <label for="color-layer-aux">Canais Auxiliares (Auxes):</label>
+                <div class="picker-wrapper">
+                  <input type="color" id="color-layer-aux" value="#06b6d4">
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="customize-actions-row" style="grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: 10px;">
+            <button class="action-btn-reset-theme" id="btn-reset-theme">
+              <i class="fa-solid fa-arrow-rotate-left"></i> Restaurar Padrões de Fábrica
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Painel Direito: Seção Master Separada -->
+      <aside class="master-section">
+        <div class="channel-strip master" id="channel-master-1">
+          <div class="strip-header">
+            <div class="channel-select-btn master-btn" id="channel-btn-master" role="button" tabindex="0" title="Segure para renomear, clique para selecionar">
+              <span class="channel-number" id="label-num-master">MST</span>
+              <input type="text" class="channel-name" id="name-input-master" value="STEREO" readonly maxlength="8">
+            </div>
+          </div>
+          
+          <!-- Botões de Processamento do Master (EQ, DYNAMIC) -->
+          <div class="channel-processing-wrapper">
+            <button class="channel-btn eq-btn" id="eq-btn-master" title="Abrir Equalizador do Master">
+              <span class="channel-btn-led"></span>
+              EQ
+            </button>
+            <button class="channel-btn dyn-btn" id="dyn-btn-master" title="Abrir Dinâmicos do Master (Gate/Compressor)">
+              <span class="channel-btn-led"></span>
+              DYNAMIC
+            </button>
+          </div>
+          
+          <button class="on-btn strip-mute-btn" id="on-master-1" title="Master ON / MUTE">ON</button>
+          
+          <div class="fader-section">
+            <!-- Tag de Roteamento LR -->
+            <div class="lr-tag-row">
+              <span class="lr-tag" style="color: var(--led-red); background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.35);">ST</span>
+              <span class="lr-signal-led"></span>
+            </div>
+            
+            <!-- Row horizontal: VU LR + Fader lado a lado -->
+            <div class="fader-controls-row">
+              <!-- Simulador de VU Meter de Saída Master Estéreo -->
+              <div class="vu-meter master-vu">
+                <div class="vu-bar left-bar" id="master-vu-l"></div>
+                <div class="vu-bar right-bar" id="master-vu-r"></div>
+              </div>
+              
+              <!-- Slider Master com régua de decibéis embutida -->
+              <div class="slider-wrapper">
+                <span class="db-lbl-top">dB</span>
+                
+                <div class="db-scale-integrated">
+                  <div class="db-tick major" style="bottom: 100%;"><span class="tick-line"></span><span class="tick-val">10</span></div>
+                  <div class="db-tick minor" style="bottom: 96.875%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 93.75%;"><span class="tick-line"></span><span class="tick-val">5</span></div>
+                  <div class="db-tick minor" style="bottom: 92.1875%;"><span class="tick-line"></span></div>
+                  <div class="db-tick minor" style="bottom: 90.625%;"><span class="tick-line"></span></div>
+                  <div class="db-tick minor" style="bottom: 89.0625%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 87.5%;"><span class="tick-line"></span><span class="tick-val">0</span></div>
+                  <div class="db-tick minor" style="bottom: 85.9375%;"><span class="tick-line"></span></div>
+                  <div class="db-tick minor" style="bottom: 84.375%;"><span class="tick-line"></span></div>
+                  <div class="db-tick minor" style="bottom: 82.8125%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 81.25%;"><span class="tick-line"></span><span class="tick-val">5</span></div>
+                  <div class="db-tick minor" style="bottom: 78.125%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 75%;"><span class="tick-line"></span><span class="tick-val">10</span></div>
+                  <div class="db-tick minor" style="bottom: 68.75%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 62.5%;"><span class="tick-line"></span><span class="tick-val">20</span></div>
+                  <div class="db-tick minor" style="bottom: 56.25%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 50%;"><span class="tick-line"></span><span class="tick-val">30</span></div>
+                  <div class="db-tick minor" style="bottom: 43.75%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 37.5%;"><span class="tick-line"></span><span class="tick-val">40</span></div>
+                  <div class="db-tick minor" style="bottom: 31.25%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 25%;"><span class="tick-line"></span><span class="tick-val">50</span></div>
+                  <div class="db-tick minor" style="bottom: 18.75%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 12.5%;"><span class="tick-line"></span><span class="tick-val">60</span></div>
+                  <div class="db-tick minor" style="bottom: 6.25%;"><span class="tick-line"></span></div>
+                  <div class="db-tick major" style="bottom: 0%;"><span class="tick-line"></span><span class="tick-val">oo</span></div>
+                </div>
+                
+                <div class="fader-groove-line"></div>
+                
+                <input type="range" class="fader-slider master-slider" id="fader-master-1" min="0" max="1023" value="0" orient="vertical">
+              </div>
+            </div>
+          </div>
+          
+          <div class="strip-footer">
+            <input type="color" class="channel-color-picker-hidden" id="color-picker-master" value="#ef4444">
+            <div class="channel-color-row">
+              <span class="channel-color-badge" id="color-badge-master" title="Mudar cor do Master"></span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Rodapé Minimalista -->
+    <footer class="main-footer">
+      <p>&copy; 2026 Antigravity Web Console para Yamaha 01V96. Modo de Controle de 10-bits.</p>
+      <div class="footer-info">
+        <span class="badge"><i class="fa-solid fa-network-wired"></i> Latência WebSockets</span>
+        <span class="badge" id="latency-val">-- ms</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Modal de Edição de Canal (nome, cor, roteamento) -->
+  <div class="modal-overlay" id="channel-editor-overlay" style="display: none;">
+    <div class="modal-box" id="channel-editor-modal">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-pen-to-square"></i> Editar Canal</h3>
+        <button class="modal-close-btn" id="channel-editor-close" title="Fechar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="editor-section">
+          <label for="editor-channel-name">Nome do Canal</label>
+          <input type="text" id="editor-channel-name" maxlength="8" placeholder="Nome do canal">
+        </div>
+        <div class="editor-section">
+          <label for="editor-channel-color">Cor do Canal</label>
+          <div class="editor-color-row">
+            <input type="color" id="editor-channel-color" value="#3b82f6">
+            <span class="editor-color-hex" id="editor-color-hex">#3b82f6</span>
+          </div>
+        </div>
+        <div class="editor-section">
+          <label>Roteamento para Buses</label>
+          <p class="editor-hint">Selecione para quais buses o canal será direcionado:</p>
+          <div class="editor-bus-grid" id="editor-bus-grid">
+            <label class="bus-toggle" data-bus="lr">
+              <input type="checkbox" id="editor-bus-lr">
+              <span class="bus-toggle-label">LR</span>
+            </label>
+            <label class="bus-toggle" data-bus="1">
+              <input type="checkbox" id="editor-bus-1">
+              <span class="bus-toggle-label">BUS 1</span>
+            </label>
+            <label class="bus-toggle" data-bus="2">
+              <input type="checkbox" id="editor-bus-2">
+              <span class="bus-toggle-label">BUS 2</span>
+            </label>
+            <label class="bus-toggle" data-bus="3">
+              <input type="checkbox" id="editor-bus-3">
+              <span class="bus-toggle-label">BUS 3</span>
+            </label>
+            <label class="bus-toggle" data-bus="4">
+              <input type="checkbox" id="editor-bus-4">
+              <span class="bus-toggle-label">BUS 4</span>
+            </label>
+            <label class="bus-toggle" data-bus="5">
+              <input type="checkbox" id="editor-bus-5">
+              <span class="bus-toggle-label">BUS 5</span>
+            </label>
+            <label class="bus-toggle" data-bus="6">
+              <input type="checkbox" id="editor-bus-6">
+              <span class="bus-toggle-label">BUS 6</span>
+            </label>
+            <label class="bus-toggle" data-bus="7">
+              <input type="checkbox" id="editor-bus-7">
+              <span class="bus-toggle-label">BUS 7</span>
+            </label>
+            <label class="bus-toggle" data-bus="8">
+              <input type="checkbox" id="editor-bus-8">
+              <span class="bus-toggle-label">BUS 8</span>
+            </label>
+          </div>
+        </div>
+        <div class="editor-section" id="editor-bus-stereo-section" style="display: none;">
+          <label>Roteamento para STEREO</label>
+          <p class="editor-hint">Direcionar a saída deste bus para o barramento estéreo (LR):</p>
+          <label class="bus-toggle bus-toggle-wide">
+            <input type="checkbox" id="editor-bus-stereo">
+            <span class="bus-toggle-label">Enviar para STEREO (LR)</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-secondary" id="channel-editor-cancel">Cancelar</button>
+        <button class="modal-btn modal-btn-primary" id="channel-editor-save"><i class="fa-solid fa-check"></i> Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="rta-module.js?v=2"></script>
+  <script src="app.js?v=9"></script>
+</body>
+</html>
